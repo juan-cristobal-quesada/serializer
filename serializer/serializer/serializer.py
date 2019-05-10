@@ -8,6 +8,7 @@ import types
 import base64
 import serializable.Serializable as Serializable
 import cPickle
+import importlib
 
 class Serializer(object):
 
@@ -15,14 +16,20 @@ class Serializer(object):
     def empty(cls,*args,**kwargs):
         return cls(*args,**kwargs)
     
-    def __serialize_attribute_value(self, attr_value):
-        serialized_attribute_value = attr_value.serialize_attributes()
-        serializable = Serializable(serialized_attribute_value)
-        return serializable
+    def __serialize_attribute_value(self, attr_value, readable=False):
+        serialized_attribute_value = attr_value.serialize_attributes(readable=readable)
+        inner_type_serializable = Serializable(serialized_attribute_value, 
+                                               attr_value.__class__.__module__,
+                                               attr_value.__class__.__name__)
+        return inner_type_serializable
     
-    def __deserialize_attribute_value(self, serializable):
-        o = self.__class__.empty()
-        o.deserialize_attributes(serializable.raw_value)
+    def __deserialize_attribute_value(self, inner_type_serializable):
+        module_name = inner_type_serializable.class_module
+        module = importlib.import_module(module_name)
+        class_name = inner_type_serializable.class_name
+        class_type = getattr(module, class_name)
+        o = class_type.empty()
+        o.deserialize_attributes(inner_type_serializable.raw_value)
         return o
 
     def __r_serialize_list(self, l):
